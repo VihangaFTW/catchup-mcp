@@ -16,6 +16,8 @@ func sayHi(ctx context.Context, req *mcp.CallToolRequest, args SayHiParams) (*mc
 
 func newServer() *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "greeter", Version: "v0.0.1"}, nil)
+
 	mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, sayHi)
+
 	return server
 }

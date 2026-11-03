@@ -6,6 +6,8 @@ Catchup starts out as a local MCP server for Google Classroom but more integrati
 
 The project is in early development and is not a high priority. Thus, it might be scrapped.
 
+The first release supports teacher mode only. Student mode follows in a later release.
+
 ## Planned tools
 
 | Tool | Question it answers |
