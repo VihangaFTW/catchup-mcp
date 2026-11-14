@@ -1,17 +1,17 @@
-package main
+package classroom
 
 import (
 	"fmt"
 	"strings"
 )
 
-func resolveCourse(courses []Course, query string) []Course {
+func ResolveCourse(courses []Course, query string) []Course {
 	query = strings.TrimSpace(query)
 
 	// query matches a course ID
 	for i := range courses {
 		if courses[i].ID == query {
-			return courses
+			return []Course{courses[i]}
 		}
 	}
 
