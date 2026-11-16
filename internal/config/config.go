@@ -1,11 +1,12 @@
 package config
 
 import (
-	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/VihangaFTW/catchup-mcp/internal/classroom"
+	"github.com/VihangaFTW/catchup-mcp/internal/logging"
 )
 
 const (
@@ -13,6 +14,8 @@ const (
 	envDemo       = "CATCHUP_DEMO"
 	envMode       = "CATCHUP_MODE"
 	envTimezone   = "CATCHUP_TIMEZONE"
+	envLogLevel   = "CATCHUP_LOG_LEVEL"
+	envLogFormat  = "CATCHUP_LOG_FORMAT"
 )
 
 type Config struct {
@@ -22,6 +25,10 @@ type Config struct {
 	CenterFile string
 	// use an in-memory center instead of a real Google client
 	Demo bool
+	// LogLevel is the minimum reporting log level.
+	LogLevel slog.Level
+	// LogFormat is the serialization format used for log outputs. Supported formats are "text" and "json".
+	LogFormat logging.Format
 }
 
 func Load(getenv func(string) string) (Config, error) {
@@ -40,12 +47,12 @@ func Load(getenv func(string) string) (Config, error) {
 	switch cfg.Role {
 
 	case classroom.RoleStudent:
-		return cfg, errors.New("student mode not supported yet, set CATCHUP_MODE=teacher")
+		return cfg, fmt.Errorf("student mode not supported yet, set %s=teacher", envMode)
 
 	case classroom.RoleTeacher:
 
 	default:
-		return cfg, fmt.Errorf("unknown mode %q, set CATCHUP_MODE to teacher", cfg.Role)
+		return cfg, fmt.Errorf("unknown mode %q, set %s to teacher", cfg.Role, envMode)
 
 	}
 
@@ -58,8 +65,24 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	if !cfg.Demo && cfg.CenterFile == "" {
-		return cfg, errors.New("CATCHUP_CENTER_FILE is not set, so point it at a center.json file")
+		return cfg, fmt.Errorf("%s is not set, so point it at a center.json file", envCenterFile)
 	}
+
+	ll, err := logging.ParseLevel(getenv(envLogLevel))
+
+	if err != nil {
+		return cfg, fmt.Errorf("%w, set %s to debug, info, warn or error", err, envLogLevel)
+	}
+
+	cfg.LogLevel = ll
+
+	lf, err := logging.ParseFormat(getenv(envLogFormat))
+
+	if err != nil {
+		return cfg, fmt.Errorf("%w, set %s to text or json", err, envLogFormat)
+	}
+
+	cfg.LogFormat = lf
 
 	return cfg, nil
 }

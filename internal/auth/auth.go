@@ -68,6 +68,8 @@ type SignInStartedError struct {
 	URL string
 }
 
+var _ error = (*SignInStartedError)(nil)
+
 func (e *SignInStartedError) Error() string {
 	return "sign-in required: " + e.URL
 }
@@ -91,6 +93,8 @@ type tokenSource struct {
 	// lastToken refers to the access token string from the most recent save.
 	lastToken string
 }
+
+var _ oauth2.TokenSource = (*tokenSource)(nil)
 
 func (ts *tokenSource) Token() (*oauth2.Token, error) {
 	latest, err := ts.src.Token()
@@ -133,6 +137,8 @@ type TokenStore interface {
 type FileTokenStore struct {
 	Path string
 }
+
+var _ TokenStore = FileTokenStore{}
 
 func DefaultTokenPath(role string) (string, error) {
 	dir, err := os.UserConfigDir()

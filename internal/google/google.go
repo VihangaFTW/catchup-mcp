@@ -32,6 +32,8 @@ type Classroom struct {
 	reauthorize func() error
 }
 
+var _ classroom.Classroom = (*Classroom)(nil)
+
 func NewClassroom(client func(context.Context) (*http.Client, error), reauthorize func() error) *Classroom {
 	return &Classroom{
 		baseURL:     classroomBaseURL,
@@ -75,6 +77,8 @@ type apiError struct {
 	// message is Google's own description. It is empty when the body has none.
 	message string
 }
+
+var _ error = (*apiError)(nil)
 
 // newAPIError reads Google's error body from resp. A body that is missing or
 // is not JSON gives an apiError that holds only the HTTP status.

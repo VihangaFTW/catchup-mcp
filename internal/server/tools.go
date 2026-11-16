@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/VihangaFTW/catchup-mcp/internal/auth"
@@ -35,7 +36,7 @@ func (tk *Toolkit) listCourses(ctx context.Context, req *mcp.CallToolRequest, ar
 
 	if err != nil {
 		action := "list your classes"
-		return buildResult(action, err)
+		return buildResult(ctx, action, err)
 	}
 
 	var b strings.Builder
@@ -57,7 +58,7 @@ func (tk *Toolkit) listCourses(ctx context.Context, req *mcp.CallToolRequest, ar
 
 }
 
-func buildResult(action string, err error) (*mcp.CallToolResult, any, error) {
+func buildResult(ctx context.Context, action string, err error) (*mcp.CallToolResult, any, error) {
 
 	// a SignInStartedError is a signal that indicates futher
 	// action from user: singing in to google via a URL
@@ -65,6 +66,10 @@ func buildResult(action string, err error) (*mcp.CallToolResult, any, error) {
 		return textResult("Sign-in opened in your browser. Finish it, then ask again. " +
 			"If no browser opened, open this link: " + signErr.URL), nil, nil
 	}
+
+	// Log error cause here because the SDK turns the returned error
+	// into a result with IsError set, so our MCP request logger never sees err
+	slog.ErrorContext(ctx, "tool call failed", "action", action, "err", err)
 
 	return nil, nil, fmt.Errorf("could not %s: %w", action, err)
 

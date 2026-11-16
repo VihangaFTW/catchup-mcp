@@ -63,8 +63,6 @@ func (c Course) Meta() string {
 		meta += ", " + c.Section
 	}
 
-	// the heading is the title of the description, so it comes first:
-	// " - heading: description", or " - " with the one that is present
 	switch {
 	case c.DescriptionHeading != "" && c.Description != "":
 		meta += " - " + c.DescriptionHeading + ": " + c.Description

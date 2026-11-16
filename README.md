@@ -1,13 +1,12 @@
 # Catchup
 
-Catchup starts out as a local MCP server for Google Classroom but more integrations will be added later on top of Classroom.
+Catchup is a local MCP server for Google Classroom.
 
 ## Status
 
 The project is in early development and is not a high priority. Thus, it might be scrapped.
 
 The first release supports teacher mode only. Student mode follows in a later release.
-
 
 ## Setup
 

@@ -15,17 +15,32 @@ import (
 	"github.com/VihangaFTW/catchup-mcp/internal/classroom"
 	"github.com/VihangaFTW/catchup-mcp/internal/config"
 	"github.com/VihangaFTW/catchup-mcp/internal/google"
+	"github.com/VihangaFTW/catchup-mcp/internal/logging"
 	"github.com/VihangaFTW/catchup-mcp/internal/server"
 	"golang.org/x/oauth2"
 )
 
 func main() {
 
+	slog.SetDefault(logging.NewLogger(os.Stderr, slog.LevelInfo, logging.FormatText))
+
 	cfg, err := config.Load(os.Getenv)
 
 	if err != nil {
 		fatal("cannot load the configuration", err)
 	}
+
+	// reset the default logger with cfg parameters
+	slog.SetDefault(logging.NewLogger(os.Stderr, cfg.LogLevel, cfg.LogFormat))
+
+	slog.Info("catchup starts",
+		"version", server.Version,
+		"role", cfg.Role,
+		"timezone", cfg.Location.String(),
+		"demo", cfg.Demo,
+		"log_level", cfg.LogLevel.String(),
+		"log_format", cfg.LogFormat,
+	)
 
 	cls, err := newClassroom(cfg)
 
@@ -61,6 +76,7 @@ func main() {
 		fatal("the mcp server stopped", err)
 	// OS signal aimed at process
 	case <-ctx.Done():
+		slog.Info("catchup received a stop signal and shuts down")
 		// gracefully shutdown server
 		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
@@ -70,11 +86,14 @@ func main() {
 		}
 	}
 
+	slog.Info("catchup stopped")
+
 }
 
 func newClassroom(cfg config.Config) (classroom.Classroom, error) {
+
 	if cfg.Demo {
-		fatal("Demo mode has not been implemented", nil)
+		return nil, errors.New("demo mode is not implemented yet")
 	}
 
 	center, err := auth.LoadClientCreds(cfg.CenterFile)
@@ -88,6 +107,8 @@ func newClassroom(cfg config.Config) (classroom.Classroom, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	slog.Debug("sign-in storage is set", "center_file", cfg.CenterFile, "token_file", tokenPath)
 
 	a := auth.New(&oauth2.Config{
 		ClientID:     center.ClientID,
