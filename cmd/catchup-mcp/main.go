@@ -42,6 +42,10 @@ func main() {
 		"log_format", cfg.LogFormat,
 	)
 
+	if !cfg.Demo {
+		slog.Info("catchup uses center file", "path", cfg.CenterFile)
+	}
+
 	cls, err := newClassroom(cfg)
 
 	if err != nil {

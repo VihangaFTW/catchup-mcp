@@ -122,8 +122,7 @@ func (ts *tokenSource) Token() (*oauth2.Token, error) {
 
 }
 
-// ErrBadTokenFile reports that the saved sign-in exists but cannot be used:
-// it is not valid JSON or it has no token. A new sign-in replaces it.
+// ErrBadTokenFile reports that the saved sign-in exists but cannot be used
 var ErrBadTokenFile = errors.New("saved sign-in is damaged")
 
 type TokenStore interface {
@@ -493,25 +492,11 @@ func (a *Auth) startSignIn() (string, error) {
 	return pending.url, nil
 }
 
-var scopeAliases = map[string]string{
-	"https://www.googleapis.com/auth/classroom.student-submissions.students.readonly": "https://www.googleapis.com/auth/classroom.coursework.students.readonly",
-	"https://www.googleapis.com/auth/classroom.student-submissions.me.readonly":       "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
-}
-
 func missingScopes(want, got []string) []string {
-	canonical := make([]string, len(got))
-
-	for i, scp := range got {
-		if alias, ok := scopeAliases[scp]; ok {
-			scp = alias
-		}
-		canonical[i] = scp
-	}
-
 	var missing []string
 
 	for _, scp := range want {
-		if !slices.Contains(canonical, scp) {
+		if !slices.Contains(got, scp) {
 			missing = append(missing, scp)
 		}
 	}
@@ -545,7 +530,6 @@ func (a *Auth) finish(p *pendingSignIn) {
 		}
 
 	}()
-
 }
 
 // OpenBrowser opens url in the host's default browser.

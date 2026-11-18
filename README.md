@@ -17,7 +17,13 @@ The server signs in to Google with an OAuth client that you create once.
 1. Create a project in the [Google Cloud Console](https://console.cloud.google.com) and enable the Google Classroom API.
 2. Configure the OAuth consent screen. If the screen stays in testing mode, add your Google account as a test user.
 3. Create an OAuth client ID with the application type "Desktop app".
-4. Save the client ID and the client secret in a JSON file outside the repository.
+4. Save the client ID and the client secret in a JSON file named `center.json` in the catchup config directory:
+
+| OS | Path |
+|---|---|
+| Linux | `~/.config/catchup/center.json` |
+| macOS | `~/Library/Application Support/catchup/center.json` |
+| Windows | `%AppData%\catchup\center.json` |
 
 The file is named the center file and has this format:
 
@@ -34,14 +40,14 @@ The server reads its settings from environment variables.
 
 | Variable | Purpose |
 |---|---|
-| `CATCHUP_CENTER_FILE` | The path to the center file. This variable is required. |
+| `CATCHUP_CENTER_FILE` | The path to the center file. The default value is `center.json` in the catchup config directory. |
 | `CATCHUP_MODE` | The mode of the install. The default value is `teacher` and it is the only supported mode. |
 | `CATCHUP_TIMEZONE` | An IANA timezone name such as `Asia/Colombo`. The default value is the local timezone. |
 
 Start the server and keep the terminal open:
 
 ```bash
-CATCHUP_CENTER_FILE=~/.config/catchup/center.json go run ./cmd/catchup-mcp
+go run ./cmd/catchup-mcp
 ```
 
 The server listens on `http://127.0.0.1:8080/mcp`.
@@ -72,6 +78,25 @@ claude mcp list
 | `pending_work` | Which coursework is due soon or overdue? |
 | `search_resources` | Where is the file or link about a subject? |
 | `missing_submissions` | Which students have outstanding work? |
+
+
+Tools from the official MCP server:
+
+- `list_courses`
+- `list_course_work_submissions`
+- `get_course_work`
+- `create_course_work`
+- `update_course_work`
+- `list_topics`
+- `create_topic`
+- `list_announcement_summaries`
+- `get_announcements`
+- `create_announcement`
+- `get_course_work_rubric`
+- `create_course_work_rubric`
+- `get_course_roster`
+- `get_guardian_info`
+- `search_course_standards`
 
 Catchup does not read the contents of attached files. It returns each file's Google Drive ID and link. To read a file, connect a Google Drive tool to your MCP client as well, such as the Google Drive connector in Claude.
 

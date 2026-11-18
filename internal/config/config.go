@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/VihangaFTW/catchup-mcp/internal/classroom"
@@ -16,6 +18,11 @@ const (
 	envTimezone   = "CATCHUP_TIMEZONE"
 	envLogLevel   = "CATCHUP_LOG_LEVEL"
 	envLogFormat  = "CATCHUP_LOG_FORMAT"
+)
+
+const (
+	appDir     = "catchup"
+	fileCenter = "center.json"
 )
 
 type Config struct {
@@ -65,7 +72,19 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	if !cfg.Demo && cfg.CenterFile == "" {
-		return cfg, fmt.Errorf("%s is not set, so point it at a center.json file", envCenterFile)
+		// fallback to the center file in the user config directory, next to the tokens
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			return cfg, fmt.Errorf("%s is not set and the config directory cannot be found: %w", envCenterFile, err)
+		}
+
+		path := filepath.Join(dir, appDir, fileCenter)
+
+		if _, err := os.Stat(path); err != nil {
+			return cfg, fmt.Errorf("%s is not set and the fallback center file cannot be used: %w", envCenterFile, err)
+		}
+
+		cfg.CenterFile = path
 	}
 
 	ll, err := logging.ParseLevel(getenv(envLogLevel))

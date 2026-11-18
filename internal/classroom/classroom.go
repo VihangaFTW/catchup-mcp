@@ -41,6 +41,16 @@ type Course struct {
 	State              CourseState
 }
 
+// Topic is a heading that groups the classwork of one course.
+type Topic struct {
+	ID   string
+	Name string
+}
+
+func (t Topic) Label() string {
+	return fmt.Sprintf("%s (id %s)", t.Name, t.ID)
+}
+
 // Label returns a human readable identifier for a Course.
 func (c Course) Label() string {
 	label := c.Name
@@ -93,4 +103,5 @@ func (c Course) Meta() string {
 
 type Classroom interface {
 	ListCourses(ctx context.Context, role CourseRole, states []CourseState) ([]Course, error)
+	ListTopics(ctx context.Context, courseID string) ([]Topic, error)
 }

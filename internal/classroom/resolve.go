@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func ResolveCourse(courses []Course, query string) []Course {
+func MatchCourses(courses []Course, query string) []Course {
 	query = strings.TrimSpace(query)
 
 	// query matches a course ID

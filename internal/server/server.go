@@ -54,6 +54,11 @@ func newMCPServer(tk *Toolkit) *mcp.Server {
 
 	mcp.AddTool(server, &mcp.Tool{Name: "list_classes", Description: "List the user's Google Classroom classes, with each class's name, section and id. Archived classes appear when include_archived is true"}, tk.listCourses)
 
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_topics",
+		Description: "List the topics of one class. Topics are the headings that group the classwork. Give the class as its id, or as words from its name and section.",
+	}, tk.listTopics)
+
 	// logging middleware for mcp requests
 	server.AddReceivingMiddleware(MCPRequestLogger)
 

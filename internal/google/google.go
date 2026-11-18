@@ -23,6 +23,10 @@ const (
 	reasonServiceDisabled   = "SERVICE_DISABLED"
 )
 
+const (
+	pathCourses = "/v1/courses/"
+)
+
 type Classroom struct {
 	baseURL string
 	// client returns the HTTP client used to send requests to the Classroom API.
@@ -66,11 +70,11 @@ func (eb googleErrorBody) reason() string {
 	return eb.Error.Status
 }
 
-// apiError is a failed Classroom API response, reduced to the three values
+// APIError is a failed Classroom REST API response, reduced to the three values
 // that the rest of the program uses.
-type apiError struct {
-	// code is the HTTP status code.
-	code int
+type APIError struct {
+	// status is the HTTP status code.
+	status int
 	// reason is the exact cause from Google's ErrorInfo entry. It is empty
 	// when the body has none.
 	reason string
@@ -78,20 +82,20 @@ type apiError struct {
 	message string
 }
 
-var _ error = (*apiError)(nil)
+var _ error = (*APIError)(nil)
 
-// newAPIError reads Google's error body from resp. A body that is missing or
+// NewAPIError reads Google's error body from resp. A body that is missing or
 // is not JSON gives an apiError that holds only the HTTP status.
-func newAPIError(resp *http.Response) *apiError {
-	apiErr := &apiError{
-		code: resp.StatusCode,
+func NewAPIError(resp *http.Response) *APIError {
+	apiErr := &APIError{
+		status: resp.StatusCode,
 	}
 
 	var body googleErrorBody
 
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		if !errors.Is(err, io.EOF) {
-			slog.Warn("cannot read the error body of a failed response", "status", apiErr.code, "err", err)
+			slog.WarnContext(resp.Request.Context(), "cannot read the error body of a failed response", "status", apiErr.status, "err", err)
 		}
 		return apiErr
 	}
@@ -102,8 +106,8 @@ func newAPIError(resp *http.Response) *apiError {
 	return apiErr
 }
 
-func (e *apiError) Error() string {
-	s := fmt.Sprintf("google classroom api: http %d %s", e.code, http.StatusText(e.code))
+func (e *APIError) Error() string {
+	s := fmt.Sprintf("google classroom api: http %d %s", e.status, http.StatusText(e.status))
 
 	if e.message != "" {
 		s += ": " + e.message
@@ -112,29 +116,29 @@ func (e *apiError) Error() string {
 	return s
 }
 
-func (e *apiError) rejectsSignIn() bool {
-	return e.code == http.StatusUnauthorized || e.reason == reasonScopeInsufficient
+func (e *APIError) rejectsSignIn() bool {
+	return e.status == http.StatusUnauthorized || e.reason == reasonScopeInsufficient
 }
 
-// advice tells the user what to do about the error. It ends with Google's own
+// Advice tells the user what to do about the error. It ends with Google's own
 // message when the response had one.
-func (e *apiError) advice() string {
+func (e *APIError) Advice() string {
 	var adv string
 
 	switch {
 	case e.rejectsSignIn():
 		adv = "Google rejected the saved sign-in. Ask again to sign in once more."
 	case e.reason == reasonServiceDisabled:
-		adv = "The Classroom API is not enabled for"
-
-	case e.code == http.StatusForbidden:
+		adv = "The Classroom API is not enabled for the Google Cloud project of the OAuth client. " +
+			"Enable it in the Google Cloud Console, wait a few minutes, then ask again."
+	case e.status == http.StatusForbidden:
 		adv = "Google denied access."
 
-	case e.code == http.StatusTooManyRequests:
+	case e.status == http.StatusTooManyRequests:
 		adv = "Google is limiting requests. Wait a minute and ask again."
 
 	default:
-		adv = fmt.Sprintf("Google returned http %d. Try again later.", e.code)
+		adv = fmt.Sprintf("Google returned http %d. Try again later.", e.status)
 	}
 
 	if e.message != "" {
@@ -163,6 +167,9 @@ func (gc *Classroom) ListCourses(ctx context.Context, role classroom.CourseRole,
 
 	var courses []classroom.Course
 
+	// for debug logs
+	pages := 0
+
 	for {
 		var page struct {
 			Courses []struct {
@@ -179,9 +186,11 @@ func (gc *Classroom) ListCourses(ctx context.Context, role classroom.CourseRole,
 			NextPageToken string `json:"nextPageToken"`
 		}
 
-		if err := gc.get(ctx, "/v1/courses", queries, &page); err != nil {
+		if err := gc.get(ctx, pathCourses, queries, &page); err != nil {
 			return nil, err
 		}
+
+		pages++
 
 		for _, c := range page.Courses {
 			courses = append(courses, classroom.Course{
@@ -198,6 +207,7 @@ func (gc *Classroom) ListCourses(ctx context.Context, role classroom.CourseRole,
 		}
 
 		if page.NextPageToken == "" {
+			slog.DebugContext(ctx, "listed courses", "role", role, "states", states, "courses", len(courses), "pages", pages)
 			return courses, nil
 		}
 		queries.Set("pageToken", page.NextPageToken)
@@ -206,6 +216,51 @@ func (gc *Classroom) ListCourses(ctx context.Context, role classroom.CourseRole,
 
 }
 
+func (gc *Classroom) ListTopics(ctx context.Context, courseID string) ([]classroom.Topic, error) {
+
+	queries := url.Values{}
+	queries.Set("pageSize", "100")
+
+	path := pathCourses + url.PathEscape(courseID) + "/topics"
+
+	var topics []classroom.Topic
+
+	// for debug logs
+	pages := 0
+
+	for {
+		var page struct {
+			Topic []struct {
+				TopicId string `json:"topicId"`
+				Name    string `json:"name"`
+			} `json:"topic"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+
+		if err := gc.get(ctx, path, queries, &page); err != nil {
+			return nil, err
+		}
+
+		pages++
+
+		for _, t := range page.Topic {
+			topics = append(topics, classroom.Topic{ID: t.TopicId, Name: t.Name})
+		}
+
+		if page.NextPageToken == "" {
+			slog.DebugContext(ctx, "listed topics", "course", courseID, "topics", len(topics), "pages", pages)
+			return topics, nil
+		}
+
+		queries.Set("pageToken", page.NextPageToken)
+	}
+}
+
+// get unmarshals the JSON response into v from a GET request to Classroom API
+// with the given path and query parameters. API errors are wrapped in APIError
+// while client side errors are returned directly.
+//
+// A successful call returns nil.
 func (gc *Classroom) get(ctx context.Context, path string, q url.Values, v any) error {
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
@@ -222,6 +277,8 @@ func (gc *Classroom) get(ctx context.Context, path string, q url.Values, v any) 
 		return err
 	}
 
+	start := time.Now()
+
 	// Do is blocking until response arrives.
 	// Internally, it waits on a channel that returns the response.
 	resp, err := client.Do(req)
@@ -235,10 +292,13 @@ func (gc *Classroom) get(ctx context.Context, path string, q url.Values, v any) 
 
 	// wrap error response in apiError struct
 	if resp.StatusCode != http.StatusOK {
-		apiErr := newAPIError(resp)
+		apiErr := NewAPIError(resp)
+
+		slog.WarnContext(ctx, "classroom api request failed", "path", path, "duration", time.Since(start), "err", apiErr)
 
 		// check if re authorization is possible
 		if gc.reauthorize != nil && apiErr.rejectsSignIn() {
+			slog.InfoContext(ctx, "google rejected the saved sign-in, so a new sign-in starts")
 			return gc.reauthorize()
 		}
 
@@ -246,5 +306,11 @@ func (gc *Classroom) get(ctx context.Context, path string, q url.Values, v any) 
 
 	}
 
-	return json.NewDecoder(resp.Body).Decode(v)
+	slog.DebugContext(ctx, "classroom api request finished", "path", path, "status", resp.StatusCode, "duration", time.Since(start))
+
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		return fmt.Errorf("cannot decode the response of %s: %w", path, err)
+	}
+
+	return nil
 }
